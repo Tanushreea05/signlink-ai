@@ -1,0 +1,74 @@
+version: '3.8'
+
+services:
+  postgres:
+    image: postgres:15-alpine
+    environment:
+      POSTGRES_DB: signlink_db
+      POSTGRES_USER: signlink
+      POSTGRES_PASSWORD: signlink123
+    ports:
+      - "5432:5432"
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    networks:
+      - signlink-network
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    volumes:
+      - redis_data:/data
+    networks:
+      - signlink-network
+
+  backend:
+    build: ./backend
+    environment:
+      - DATABASE_URL=postgresql+asyncpg://signlink:signlink123@postgres:5432/signlink_db
+      - REDIS_URL=redis://redis:6379/0
+      - SECRET_KEY=dev-secret-key-change-in-production-min-32-chars
+      - JWT_SECRET_KEY=dev-jwt-secret-key-change-in-production-min-32-chars
+      - ML_INFERENCE_URL=http://ml-server:8001
+    ports:
+      - "8000:8000"
+    depends_on:
+      - postgres
+      - redis
+    volumes:
+      - ./backend:/app
+    command: uvicorn app.main:app --host 0.0.0.0 --port 8000 --reload
+    networks:
+      - signlink-network
+
+  ml-server:
+    build: ./ml
+    ports:
+      - "8001:8001"
+    volumes:
+      - ./ml:/app
+    command: python inference_server/server.py --host 0.0.0.0 --port 8001
+    networks:
+      - signlink-network
+
+  web:
+    build: ./web
+    ports:
+      - "3000:3000"
+    environment:
+      - NEXT_PUBLIC_API_URL=http://localhost:8000
+    volumes:
+      - ./web:/app
+      - /app/node_modules
+    command: npm run dev
+    networks:
+      - signlink-network
+
+volumes:
+  postgres_data:
+  redis_data:
+
+networks:
+  signlink-network:
+    driver: bridge

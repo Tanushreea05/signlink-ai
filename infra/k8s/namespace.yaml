@@ -1,0 +1,7 @@
+apiVersion: v1
+kind: Namespace
+metadata:
+  name: signlink-ai
+  labels:
+    name: signlink-ai
+    environment: production

@@ -1,0 +1,770 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SignLink AI - Enterprise ISL Platform</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+    <script src="https://unpkg.com/chart.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/camera_utils/camera_utils.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/control_utils/control_utils.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/drawing_utils/drawing_utils.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/@mediapipe/hands/hands.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .gradient-bg { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+        .card-shadow { box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
+        .animate-fade-in { animation: fadeIn 0.5s ease-in; }
+        @keyframes fadeIn { from { opacity: 0; transform: translateY(20px); } to { opacity: 1; transform: translateY(0); } }
+        .loading-spinner { border: 3px solid #f3f3f3; border-top: 3px solid #3498db; border-radius: 50%; width: 30px; height: 30px; animation: spin 1s linear infinite; }
+        @keyframes spin { 0% { transform: rotate(0deg); } 100% { transform: rotate(360deg); } }
+    </style>
+</head>
+<body class="bg-gray-50 font-sans">
+    <!-- Navigation -->
+    <nav class="gradient-bg text-white shadow-lg">
+        <div class="container mx-auto px-6 py-4">
+            <div class="flex justify-between items-center">
+                <div class="flex items-center space-x-4">
+                    <i class="fas fa-hands text-2xl"></i>
+                    <h1 class="text-2xl font-bold">SignLink AI</h1>
+                    <span class="bg-yellow-400 text-black px-2 py-1 rounded text-xs font-semibold">ENTERPRISE</span>
+                </div>
+                <div id="userInfo" class="hidden flex items-center space-x-4">
+                    <span id="userName" class="font-medium"></span>
+                    <button id="logoutBtn" class="bg-red-500 hover:bg-red-600 px-4 py-2 rounded transition">
+                        <i class="fas fa-sign-out-alt mr-2"></i>Logout
+                    </button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- Main Container -->
+    <div class="container mx-auto px-6 py-8">
+        <!-- Authentication Section -->
+        <div id="authSection" class="max-w-md mx-auto">
+            <div class="bg-white rounded-lg card-shadow p-8 animate-fade-in">
+                <div class="text-center mb-8">
+                    <i class="fas fa-hands text-4xl text-indigo-600 mb-4"></i>
+                    <h2 class="text-3xl font-bold text-gray-800">Welcome to SignLink AI</h2>
+                    <p class="text-gray-600 mt-2">Enterprise Indian Sign Language Platform</p>
+                </div>
+
+                <!-- Login/Register Tabs -->
+                <div class="flex mb-6 bg-gray-100 rounded-lg p-1">
+                    <button id="loginTab" class="flex-1 py-2 px-4 rounded-md bg-white shadow-sm font-medium text-indigo-600">Login</button>
+                    <button id="registerTab" class="flex-1 py-2 px-4 rounded-md font-medium text-gray-600">Register</button>
+                </div>
+
+                <!-- Login Form -->
+                <form id="loginForm" class="space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Email</label>
+                        <input type="email" id="loginEmail" required class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Password</label>
+                        <input type="password" id="loginPassword" required class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent">
+                    </div>
+                    <button type="submit" class="w-full bg-indigo-600 text-white py-3 rounded-lg hover:bg-indigo-700 transition font-medium">
+                        <i class="fas fa-sign-in-alt mr-2"></i>Login
+                    </button>
+                </form>
+
+                <!-- Register Form -->
+                <form id="registerForm" class="space-y-4 hidden">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Full Name</label>
+                        <input type="text" id="registerName" required class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Email</label>
+                        <input type="email" id="registerEmail" required class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Password</label>
+                        <input type="password" id="registerPassword" required class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">Preferred Language</label>
+                        <select id="preferredLanguage" class="w-full px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500 focus:border-transparent">
+                            <option value="indian_english">🇮🇳 Indian English</option>
+                            <option value="tamil">🇮🇳 Tamil</option>
+                            <option value="english">🇺🇸 English</option>
+                        </select>
+                    </div>
+                    <button type="submit" class="w-full bg-green-600 text-white py-3 rounded-lg hover:bg-green-700 transition font-medium">
+                        <i class="fas fa-user-plus mr-2"></i>Register
+                    </button>
+                </form>
+            </div>
+        </div>
+
+        <!-- Main Dashboard -->
+        <div id="dashboardSection" class="hidden animate-fade-in">
+            <!-- Stats Cards -->
+            <div class="grid grid-cols-1 md:grid-cols-4 gap-6 mb-8">
+                <div class="bg-white rounded-lg card-shadow p-6">
+                    <div class="flex items-center">
+                        <div class="p-3 rounded-full bg-blue-100 text-blue-600">
+                            <i class="fas fa-brain text-xl"></i>
+                        </div>
+                        <div class="ml-4">
+                            <p class="text-sm font-medium text-gray-600">Total Predictions</p>
+                            <p id="totalPredictions" class="text-2xl font-semibold text-gray-900">0</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="bg-white rounded-lg card-shadow p-6">
+                    <div class="flex items-center">
+                        <div class="p-3 rounded-full bg-green-100 text-green-600">
+                            <i class="fas fa-chart-line text-xl"></i>
+                        </div>
+                        <div class="ml-4">
+                            <p class="text-sm font-medium text-gray-600">Accuracy</p>
+                            <p id="accuracy" class="text-2xl font-semibold text-gray-900">94%</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="bg-white rounded-lg card-shadow p-6">
+                    <div class="flex items-center">
+                        <div class="p-3 rounded-full bg-yellow-100 text-yellow-600">
+                            <i class="fas fa-book text-xl"></i>
+                        </div>
+                        <div class="ml-4">
+                            <p class="text-sm font-medium text-gray-600">Signs Learned</p>
+                            <p id="signsLearned" class="text-2xl font-semibold text-gray-900">0</p>
+                        </div>
+                    </div>
+                </div>
+                <div class="bg-white rounded-lg card-shadow p-6">
+                    <div class="flex items-center">
+                        <div class="p-3 rounded-full bg-purple-100 text-purple-600">
+                            <i class="fas fa-clock text-xl"></i>
+                        </div>
+                        <div class="ml-4">
+                            <p class="text-sm font-medium text-gray-600">Session Time</p>
+                            <p id="sessionTime" class="text-2xl font-semibold text-gray-900">0m</p>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Main Content Grid -->
+            <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+                <!-- Recognition Panel -->
+                <div class="lg:col-span-2">
+                    <div class="bg-white rounded-lg card-shadow p-6">
+                        <h3 class="text-xl font-semibold mb-6 flex items-center">
+                            <i class="fas fa-video mr-3 text-indigo-600"></i>
+                            ISL Recognition Studio
+                        </h3>
+                        
+                        <div class="space-y-4">
+                            <div class="flex space-x-4">
+                                <select id="languageSelect" class="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500">
+                                    <option value="ISL">🇮🇳 Indian Sign Language (ISL)</option>
+                                    <option value="ASL">🇺🇸 American Sign Language (ASL)</option>
+                                    <option value="BSL">🇬🇧 British Sign Language (BSL)</option>
+                                </select>
+                                <select id="outputLanguage" class="flex-1 px-4 py-3 border border-gray-300 rounded-lg focus:ring-2 focus:ring-indigo-500">
+                                    <option value="indian_english">🇮🇳 Indian English</option>
+                                    <option value="tamil">🇮🇳 Tamil</option>
+                                    <option value="english">🇺🇸 English</option>
+                                </select>
+                            </div>
+                            
+                            <div class="bg-black rounded-lg relative overflow-hidden" style="aspect-ratio: 16/9;">
+                                <!-- Video Element for Camera -->
+                                <video id="videoElement" class="w-full h-full object-cover" autoplay muted playsinline></video>
+                                <canvas id="canvasElement" class="absolute top-0 left-0 w-full h-full"></canvas>
+                                
+                                <!-- Camera Controls Overlay -->
+                                <div id="cameraControls" class="absolute inset-0 flex items-center justify-center bg-black bg-opacity-50">
+                                    <div class="text-center text-white">
+                                        <i class="fas fa-camera text-6xl text-gray-400 mb-4"></i>
+                                        <p class="text-xl mb-6">Real-time Tamil ISL Recognition</p>
+                                        <div class="space-x-4">
+                                            <button id="startCameraBtn" class="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition">
+                                                <i class="fas fa-video mr-2"></i>Start Camera
+                                            </button>
+                                            <button id="testMLBtn" class="bg-purple-600 text-white px-6 py-3 rounded-lg hover:bg-purple-700 transition">
+                                                <i class="fas fa-flask mr-2"></i>Test ML Server
+                                            </button>
+                                        </div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Hand Detection Overlay -->
+                                <div id="handDetectionOverlay" class="absolute top-4 left-4 bg-black bg-opacity-70 text-white px-3 py-2 rounded-lg text-sm hidden">
+                                    <i class="fas fa-hand-paper mr-2 text-green-400"></i>
+                                    <span id="handStatus">Detecting hands...</span>
+                                </div>
+                                
+                                <!-- Prediction Overlay -->
+                                <div id="predictionOverlay" class="absolute top-4 right-4 bg-black bg-opacity-80 text-white p-4 rounded-lg max-w-xs hidden">
+                                    <div class="text-center">
+                                        <h4 id="predictedSign" class="text-2xl font-bold text-green-400 mb-2"></h4>
+                                        <p id="signDescription" class="text-sm text-gray-300 mb-2"></p>
+                                        <p id="signPhonetic" class="text-xs text-blue-300 mb-2"></p>
+                                        <div id="confidenceScore" class="text-lg font-bold text-yellow-400"></div>
+                                    </div>
+                                </div>
+                                
+                                <!-- Camera Status -->
+                                <div id="cameraStatus" class="absolute bottom-4 left-4 bg-black bg-opacity-70 text-white px-3 py-2 rounded-lg text-sm">
+                                    <i id="statusIcon" class="fas fa-circle mr-2 text-red-500"></i>
+                                    <span id="statusText">Camera Offline</span>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Results Panel -->
+                <div>
+                    <div class="bg-white rounded-lg card-shadow p-6">
+                        <h3 class="text-xl font-semibold mb-6 flex items-center">
+                            <i class="fas fa-chart-bar mr-3 text-green-600"></i>
+                            Recognition Results
+                        </h3>
+                        <div id="results" class="space-y-4">
+                            <div class="text-center text-gray-500 py-8">
+                                <i class="fas fa-search text-3xl mb-4"></i>
+                                <p>Results will appear here...</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Vocabulary Browser -->
+            <div class="mt-8">
+                <div class="bg-white rounded-lg card-shadow p-6">
+                    <h3 class="text-xl font-semibold mb-6 flex items-center">
+                        <i class="fas fa-book-open mr-3 text-purple-600"></i>
+                        ISL Vocabulary Browser
+                    </h3>
+                    <div class="grid grid-cols-1 md:grid-cols-3 gap-4 mb-6">
+                        <select id="categoryFilter" class="px-4 py-3 border border-gray-300 rounded-lg">
+                            <option value="">All Categories</option>
+                        </select>
+                        <select id="difficultyFilter" class="px-4 py-3 border border-gray-300 rounded-lg">
+                            <option value="">All Difficulties</option>
+                            <option value="basic">Basic</option>
+                            <option value="intermediate">Intermediate</option>
+                            <option value="advanced">Advanced</option>
+                        </select>
+                        <button id="loadVocabulary" class="bg-purple-600 text-white px-6 py-3 rounded-lg hover:bg-purple-700 transition">
+                            <i class="fas fa-search mr-2"></i>Load Vocabulary
+                        </button>
+                    </div>
+                    <div id="vocabularyGrid" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                        <!-- Vocabulary items will be loaded here -->
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Notification Toast -->
+    <div id="toast" class="fixed top-4 right-4 bg-white border-l-4 border-green-500 rounded-lg shadow-lg p-4 transform translate-x-full transition-transform duration-300 z-50">
+        <div class="flex items-center">
+            <i id="toastIcon" class="fas fa-check-circle text-green-500 mr-3"></i>
+            <p id="toastMessage" class="text-gray-800 font-medium"></p>
+        </div>
+    </div>
+
+    <script>
+        // Application State
+        const AppState = {
+            user: null,
+            authToken: null,
+            websocket: null,
+            sessionStartTime: Date.now(),
+            stats: { totalPredictions: 0, signsLearned: 0 },
+            camera: {
+                stream: null,
+                isActive: false,
+                hands: null,
+                camera: null
+            },
+            recognition: {
+                isActive: false,
+                lastPrediction: null,
+                handLandmarks: null
+            }
+        };
+
+        // API Configuration
+        const API_CONFIG = {
+            backend: 'http://localhost:8000',
+            mlServer: 'http://localhost:8001',
+            websocket: 'ws://localhost:8000/ws'
+        };
+
+        // DOM Elements
+        const elements = {
+            authSection: document.getElementById('authSection'),
+            dashboardSection: document.getElementById('dashboardSection'),
+            loginForm: document.getElementById('loginForm'),
+            registerForm: document.getElementById('registerForm'),
+            loginTab: document.getElementById('loginTab'),
+            registerTab: document.getElementById('registerTab'),
+            userInfo: document.getElementById('userInfo'),
+            userName: document.getElementById('userName'),
+            logoutBtn: document.getElementById('logoutBtn'),
+            results: document.getElementById('results'),
+            testMLBtn: document.getElementById('testMLBtn'),
+            startCameraBtn: document.getElementById('startCameraBtn'),
+            loadVocabulary: document.getElementById('loadVocabulary'),
+            vocabularyGrid: document.getElementById('vocabularyGrid'),
+            categoryFilter: document.getElementById('categoryFilter'),
+            videoElement: document.getElementById('videoElement'),
+            canvasElement: document.getElementById('canvasElement'),
+            cameraControls: document.getElementById('cameraControls'),
+            handDetectionOverlay: document.getElementById('handDetectionOverlay'),
+            predictionOverlay: document.getElementById('predictionOverlay'),
+            cameraStatus: document.getElementById('cameraStatus')
+        };
+
+        // Utility Functions
+        function showToast(message, type = 'success') {
+            const toast = document.getElementById('toast');
+            const icon = document.getElementById('toastIcon');
+            const messageEl = document.getElementById('toastMessage');
+            
+            const config = {
+                success: { icon: 'fas fa-check-circle', color: 'green' },
+                error: { icon: 'fas fa-exclamation-circle', color: 'red' },
+                info: { icon: 'fas fa-info-circle', color: 'blue' }
+            };
+            
+            icon.className = `${config[type].icon} text-${config[type].color}-500 mr-3`;
+            messageEl.textContent = message;
+            toast.style.borderLeftColor = config[type].color;
+            
+            toast.classList.remove('translate-x-full');
+            setTimeout(() => toast.classList.add('translate-x-full'), 3000);
+        }
+
+        function updateStats() {
+            document.getElementById('totalPredictions').textContent = AppState.stats.totalPredictions;
+            document.getElementById('signsLearned').textContent = Math.floor(AppState.stats.totalPredictions / 5);
+            const sessionMinutes = Math.floor((Date.now() - AppState.sessionStartTime) / 60000);
+            document.getElementById('sessionTime').textContent = `${sessionMinutes}m`;
+        }
+
+        // Authentication
+        elements.loginTab.addEventListener('click', () => {
+            elements.loginTab.classList.add('bg-white', 'shadow-sm', 'text-indigo-600');
+            elements.registerTab.classList.remove('bg-white', 'shadow-sm', 'text-indigo-600');
+            elements.loginForm.classList.remove('hidden');
+            elements.registerForm.classList.add('hidden');
+        });
+
+        elements.registerTab.addEventListener('click', () => {
+            elements.registerTab.classList.add('bg-white', 'shadow-sm', 'text-indigo-600');
+            elements.loginTab.classList.remove('bg-white', 'shadow-sm', 'text-indigo-600');
+            elements.registerForm.classList.remove('hidden');
+            elements.loginForm.classList.add('hidden');
+        });
+
+        elements.loginForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            try {
+                const response = await axios.post(`${API_CONFIG.backend}/api/v1/auth/login`, {
+                    email: document.getElementById('loginEmail').value,
+                    password: document.getElementById('loginPassword').value
+                });
+                
+                AppState.user = response.data.user;
+                AppState.authToken = response.data.access_token;
+                
+                elements.userName.textContent = AppState.user.full_name;
+                elements.userInfo.classList.remove('hidden');
+                elements.authSection.classList.add('hidden');
+                elements.dashboardSection.classList.remove('hidden');
+                
+                showToast(`Welcome back, ${AppState.user.full_name}! 🎉`);
+                updateStats();
+                
+            } catch (error) {
+                showToast(error.response?.data?.detail || 'Login failed', 'error');
+            }
+        });
+
+        elements.registerForm.addEventListener('submit', async (e) => {
+            e.preventDefault();
+            try {
+                const response = await axios.post(`${API_CONFIG.backend}/api/v1/auth/register`, {
+                    email: document.getElementById('registerEmail').value,
+                    password: document.getElementById('registerPassword').value,
+                    full_name: document.getElementById('registerName').value,
+                    preferred_language: document.getElementById('preferredLanguage').value
+                });
+                
+                AppState.user = response.data.user;
+                AppState.authToken = response.data.access_token;
+                
+                elements.userName.textContent = AppState.user.full_name;
+                elements.userInfo.classList.remove('hidden');
+                elements.authSection.classList.add('hidden');
+                elements.dashboardSection.classList.remove('hidden');
+                
+                showToast(`Registration successful! Welcome ${AppState.user.full_name}! 🎉`);
+                updateStats();
+                
+            } catch (error) {
+                showToast(error.response?.data?.detail || 'Registration failed', 'error');
+            }
+        });
+
+        // ML Testing
+        elements.testMLBtn.addEventListener('click', async () => {
+            elements.cameraPlaceholder.classList.add('hidden');
+            elements.loadingState.classList.remove('hidden');
+            
+            try {
+                const response = await axios.post(`${API_CONFIG.mlServer}/predict`, {
+                    language: document.getElementById('languageSelect').value,
+                    output_language: document.getElementById('outputLanguage').value,
+                    input_type: 'keypoints',
+                    keypoints: [[0.5, 0.5, 0.0], [0.6, 0.4, 0.0]]
+                });
+                
+                displayResults(response.data);
+                AppState.stats.totalPredictions++;
+                updateStats();
+                showToast('ML prediction successful! 🎯');
+                
+            } catch (error) {
+                showToast('ML server connection failed', 'error');
+            } finally {
+                elements.loadingState.classList.add('hidden');
+                elements.cameraPlaceholder.classList.remove('hidden');
+            }
+        });
+
+        function displayResults(data) {
+            const outputLang = document.getElementById('outputLanguage').value;
+            const description = data.prediction.description[outputLang] || data.prediction.description.english;
+            
+            elements.results.innerHTML = `
+                <div class="space-y-4">
+                    <div class="bg-green-50 border border-green-200 rounded-lg p-4">
+                        <div class="flex items-center justify-between mb-2">
+                            <h4 class="font-bold text-green-800 text-lg">${data.prediction.sign}</h4>
+                            <span class="bg-green-100 text-green-800 px-2 py-1 rounded-full text-sm font-medium">
+                                ${Math.round(data.prediction.confidence * 100)}%
+                            </span>
+                        </div>
+                        <p class="text-green-700 mb-2">${description}</p>
+                        <div class="text-sm text-green-600">
+                            <span class="font-medium">Category:</span> ${data.prediction.category} | 
+                            <span class="font-medium">Difficulty:</span> ${data.prediction.difficulty}
+                        </div>
+                        ${data.prediction.phonetic ? `<div class="text-sm text-green-600 mt-1">
+                            <span class="font-medium">Pronunciation:</span> ${data.prediction.phonetic}
+                        </div>` : ''}
+                    </div>
+                    
+                    <div class="space-y-2">
+                        <h5 class="font-medium text-gray-700">Alternative Predictions:</h5>
+                        ${data.alternatives.map(alt => `
+                            <div class="bg-gray-50 p-3 rounded-lg flex justify-between items-center">
+                                <div>
+                                    <span class="font-medium">${alt.sign}</span>
+                                    <p class="text-sm text-gray-600">${alt.description[outputLang] || alt.description.english}</p>
+                                </div>
+                                <span class="text-gray-500 text-sm">${Math.round(alt.confidence * 100)}%</span>
+                            </div>
+                        `).join('')}
+                    </div>
+                    
+                    <div class="text-xs text-gray-500 bg-gray-50 p-2 rounded">
+                        Model: ${data.model_info.name} | Processing: ${Math.round(data.processing_time_ms)}ms | Language: ${data.language}
+                    </div>
+                </div>
+            `;
+        }
+
+        // Vocabulary Browser
+        elements.loadVocabulary.addEventListener('click', async () => {
+            try {
+                const params = new URLSearchParams();
+                const category = elements.categoryFilter.value;
+                const difficulty = document.getElementById('difficultyFilter').value;
+                const outputLang = AppState.user?.preferred_language || 'indian_english';
+                
+                if (category) params.append('category', category);
+                if (difficulty) params.append('difficulty', difficulty);
+                params.append('output_language', outputLang);
+                
+                const response = await axios.get(`${API_CONFIG.mlServer}/vocabulary?${params}`);
+                displayVocabulary(response.data);
+                
+            } catch (error) {
+                showToast('Failed to load vocabulary', 'error');
+            }
+        });
+
+        function displayVocabulary(data) {
+            elements.vocabularyGrid.innerHTML = Object.entries(data.vocabulary).map(([sign, info]) => `
+                <div class="bg-white border border-gray-200 rounded-lg p-4 hover:shadow-md transition">
+                    <div class="flex justify-between items-start mb-2">
+                        <h4 class="font-bold text-lg text-gray-800">${sign}</h4>
+                        <span class="bg-blue-100 text-blue-800 px-2 py-1 rounded-full text-xs font-medium">
+                            ${info.category}
+                        </span>
+                    </div>
+                    <p class="text-gray-600 text-sm mb-2">${info.description}</p>
+                    ${info.phonetic ? `<p class="text-gray-500 text-xs mb-2">🔊 ${info.phonetic}</p>` : ''}
+                    <div class="flex justify-between items-center">
+                        <span class="text-xs text-gray-500">${info.difficulty}</span>
+                        <button class="text-indigo-600 hover:text-indigo-800 text-sm font-medium">
+                            <i class="fas fa-play mr-1"></i>Practice
+                        </button>
+                    </div>
+                </div>
+            `).join('');
+            
+            // Update category filter
+            const categories = data.categories || [];
+            elements.categoryFilter.innerHTML = '<option value="">All Categories</option>' + 
+                categories.map(cat => `<option value="${cat}">${cat.charAt(0).toUpperCase() + cat.slice(1)}</option>`).join('');
+        }
+
+        // Camera and MediaPipe Functions
+        async function initializeCamera() {
+            try {
+                console.log('Initializing camera...');
+                
+                // Get camera stream
+                AppState.camera.stream = await navigator.mediaDevices.getUserMedia({
+                    video: {
+                        width: { ideal: 1280, min: 640 },
+                        height: { ideal: 720, min: 480 },
+                        facingMode: 'user'
+                    },
+                    audio: false
+                });
+                
+                elements.videoElement.srcObject = AppState.camera.stream;
+                AppState.camera.isActive = true;
+                
+                // Hide camera controls overlay
+                elements.cameraControls.classList.add('hidden');
+                
+                // Update status
+                updateCameraStatus('active', 'Camera Active');
+                showToast('Camera started successfully! 📹', 'success');
+                
+                // Initialize MediaPipe Hands
+                await initializeMediaPipe();
+                
+            } catch (error) {
+                console.error('Camera initialization failed:', error);
+                let errorMsg = 'Camera access failed. ';
+                if (error.name === 'NotAllowedError') {
+                    errorMsg += 'Please allow camera permissions.';
+                } else if (error.name === 'NotFoundError') {
+                    errorMsg += 'No camera found.';
+                } else {
+                    errorMsg += error.message;
+                }
+                showToast(errorMsg, 'error');
+                updateCameraStatus('error', 'Camera Error');
+            }
+        }
+
+        async function initializeMediaPipe() {
+            try {
+                console.log('Initializing MediaPipe Hands...');
+                
+                // Initialize MediaPipe Hands
+                AppState.camera.hands = new Hands({
+                    locateFile: (file) => {
+                        return `https://cdn.jsdelivr.net/npm/@mediapipe/hands/${file}`;
+                    }
+                });
+                
+                AppState.camera.hands.setOptions({
+                    maxNumHands: 2,
+                    modelComplexity: 1,
+                    minDetectionConfidence: 0.5,
+                    minTrackingConfidence: 0.5
+                });
+                
+                AppState.camera.hands.onResults(onHandsResults);
+                
+                // Initialize camera
+                AppState.camera.camera = new Camera(elements.videoElement, {
+                    onFrame: async () => {
+                        if (AppState.camera.hands) {
+                            await AppState.camera.hands.send({image: elements.videoElement});
+                        }
+                    },
+                    width: 1280,
+                    height: 720
+                });
+                
+                AppState.camera.camera.start();
+                
+                // Show hand detection overlay
+                elements.handDetectionOverlay.classList.remove('hidden');
+                document.getElementById('handStatus').textContent = 'Ready for hand detection';
+                
+                showToast('Hand detection ready! 👋', 'success');
+                
+            } catch (error) {
+                console.error('MediaPipe initialization failed:', error);
+                showToast('Hand detection initialization failed', 'error');
+            }
+        }
+
+        function onHandsResults(results) {
+            const canvasCtx = elements.canvasElement.getContext('2d');
+            
+            // Clear canvas
+            canvasCtx.save();
+            canvasCtx.clearRect(0, 0, elements.canvasElement.width, elements.canvasElement.height);
+            
+            // Set canvas size to match video
+            elements.canvasElement.width = elements.videoElement.videoWidth;
+            elements.canvasElement.height = elements.videoElement.videoHeight;
+            
+            // Draw hand landmarks if detected
+            if (results.multiHandLandmarks) {
+                for (const landmarks of results.multiHandLandmarks) {
+                    drawConnectors(canvasCtx, landmarks, HAND_CONNECTIONS, {color: '#00FF00', lineWidth: 2});
+                    drawLandmarks(canvasCtx, landmarks, {color: '#FF0000', lineWidth: 1});
+                }
+                
+                // Update hand status
+                const handCount = results.multiHandLandmarks.length;
+                document.getElementById('handStatus').textContent = `${handCount} hand${handCount > 1 ? 's' : ''} detected`;
+                
+                // Store landmarks for recognition
+                AppState.recognition.handLandmarks = results.multiHandLandmarks;
+                
+                // Trigger recognition if active
+                if (AppState.recognition.isActive) {
+                    performRecognition(results.multiHandLandmarks);
+                }
+                
+            } else {
+                document.getElementById('handStatus').textContent = 'No hands detected';
+                AppState.recognition.handLandmarks = null;
+            }
+            
+            canvasCtx.restore();
+        }
+
+        async function performRecognition(handLandmarks) {
+            try {
+                // Convert landmarks to keypoints format
+                const keypoints = [];
+                for (const landmarks of handLandmarks) {
+                    for (const landmark of landmarks) {
+                        keypoints.push([landmark.x, landmark.y, landmark.z || 0]);
+                    }
+                }
+                
+                // Make prediction request
+                const response = await axios.post(`${API_CONFIG.mlServer}/predict`, {
+                    language: document.getElementById('languageSelect').value,
+                    output_language: document.getElementById('outputLanguage').value,
+                    input_type: 'keypoints',
+                    keypoints: keypoints,
+                    session_id: `live_${Date.now()}`
+                });
+                
+                displayLivePrediction(response.data);
+                AppState.stats.totalPredictions++;
+                updateStats();
+                
+            } catch (error) {
+                console.error('Recognition failed:', error);
+            }
+        }
+
+        function displayLivePrediction(data) {
+            const outputLang = document.getElementById('outputLanguage').value;
+            const prediction = data.prediction;
+            
+            // Update prediction overlay
+            document.getElementById('predictedSign').textContent = prediction.sign;
+            document.getElementById('signDescription').textContent = 
+                prediction.description[outputLang] || prediction.description.english || 'Tamil ISL Sign';
+            document.getElementById('signPhonetic').textContent = 
+                prediction.phonetic ? `🔊 ${prediction.phonetic}` : '';
+            document.getElementById('confidenceScore').textContent = 
+                `${Math.round(prediction.confidence * 100)}%`;
+            
+            elements.predictionOverlay.classList.remove('hidden');
+            
+            // Update results panel
+            displayResults(data);
+            
+            // Store last prediction
+            AppState.recognition.lastPrediction = data;
+        }
+
+        function updateCameraStatus(status, text) {
+            const statusIcon = document.getElementById('statusIcon');
+            const statusText = document.getElementById('statusText');
+            
+            statusIcon.className = `fas fa-circle mr-2 ${
+                status === 'active' ? 'text-green-500' :
+                status === 'error' ? 'text-red-500' :
+                'text-yellow-500'
+            }`;
+            statusText.textContent = text;
+        }
+
+        function startRecognition() {
+            if (!AppState.camera.isActive) {
+                showToast('Please start camera first', 'error');
+                return;
+            }
+            
+            AppState.recognition.isActive = true;
+            updateCameraStatus('active', 'Live Recognition Active');
+            showToast('Live recognition started! Show hand gestures to camera', 'success');
+        }
+
+        function stopRecognition() {
+            AppState.recognition.isActive = false;
+            elements.predictionOverlay.classList.add('hidden');
+            updateCameraStatus('active', 'Camera Active');
+            showToast('Recognition stopped', 'info');
+        }
+
+        // Event Listeners
+        elements.startCameraBtn.addEventListener('click', initializeCamera);
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            updateStats();
+            setInterval(updateStats, 60000); // Update every minute
+            
+            // Auto-start recognition when camera is ready
+            setTimeout(() => {
+                if (AppState.camera.isActive) {
+                    startRecognition();
+                }
+            }, 2000);
+            
+            // Load initial vocabulary
+            setTimeout(() => {
+                if (elements.loadVocabulary) {
+                    elements.loadVocabulary.click();
+                }
+            }, 1000);
+        });
+    </script>
+</body>
+</html>

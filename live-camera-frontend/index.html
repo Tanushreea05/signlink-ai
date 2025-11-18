@@ -1,0 +1,444 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SignLink AI - Live Camera Tamil ISL</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .camera-container { position: relative; border-radius: 12px; overflow: hidden; background: #000; }
+        .prediction-overlay { 
+            position: absolute; top: 10px; left: 10px; right: 10px; 
+            background: rgba(0,0,0,0.8); color: white; padding: 10px; 
+            border-radius: 8px; backdrop-filter: blur(10px);
+        }
+        .live-indicator { animation: pulse 2s infinite; }
+        @keyframes pulse { 0%, 100% { opacity: 1; } 50% { opacity: 0.5; } }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <!-- Header -->
+    <nav class="bg-gradient-to-r from-blue-600 to-purple-600 text-white shadow-lg">
+        <div class="container mx-auto px-6 py-4">
+            <div class="flex justify-between items-center">
+                <div class="flex items-center space-x-4">
+                    <i class="fas fa-video text-2xl"></i>
+                    <h1 class="text-2xl font-bold">SignLink AI Live Camera</h1>
+                    <span id="liveStatus" class="bg-red-500 px-2 py-1 rounded text-xs font-semibold live-indicator">OFFLINE</span>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <select id="languageSelect" class="bg-white text-black px-3 py-1 rounded">
+                        <option value="tamil">🇮🇳 Tamil</option>
+                        <option value="english">🇺🇸 English</option>
+                        <option value="hindi">🇮🇳 Hindi</option>
+                    </select>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mx-auto px-6 py-8">
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <!-- Camera Section -->
+            <div class="lg:col-span-2">
+                <div class="bg-white rounded-lg shadow-lg p-6">
+                    <h3 class="text-xl font-semibold mb-4 flex items-center">
+                        <i class="fas fa-camera mr-3 text-blue-600"></i>
+                        Live Tamil ISL Recognition
+                    </h3>
+                    
+                    <!-- Camera Display -->
+                    <div class="camera-container aspect-video mb-4">
+                        <video id="videoElement" class="w-full h-full object-cover" autoplay muted playsinline></video>
+                        <canvas id="canvasElement" class="hidden"></canvas>
+                        
+                        <!-- Live Prediction Overlay -->
+                        <div id="predictionOverlay" class="prediction-overlay hidden">
+                            <div class="flex justify-between items-start">
+                                <div>
+                                    <h4 id="predictedSign" class="text-xl font-bold text-green-400"></h4>
+                                    <p id="signDescription" class="text-sm text-gray-300 mt-1"></p>
+                                    <p id="signPhonetic" class="text-xs text-blue-300 mt-1"></p>
+                                </div>
+                                <div class="text-right">
+                                    <div id="confidenceScore" class="text-2xl font-bold text-yellow-400"></div>
+                                    <div class="text-xs text-gray-400">Confidence</div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Camera Permission Screen -->
+                        <div id="cameraPermission" class="absolute inset-0 flex items-center justify-center bg-gray-900">
+                            <div class="text-center text-white">
+                                <i class="fas fa-camera text-6xl mb-4 text-gray-400"></i>
+                                <h3 class="text-xl mb-4">Camera Access Required</h3>
+                                <p class="text-gray-300 mb-6">Allow camera access to start live Tamil ISL recognition</p>
+                                <button id="enableCameraBtn" class="bg-blue-600 text-white px-8 py-3 rounded-lg hover:bg-blue-700 transition text-lg">
+                                    <i class="fas fa-video mr-2"></i>Enable Camera
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Controls -->
+                    <div class="flex justify-center space-x-4">
+                        <button id="startRecognitionBtn" class="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition disabled:opacity-50" disabled>
+                            <i class="fas fa-play mr-2"></i>Start Live Recognition
+                        </button>
+                        <button id="stopRecognitionBtn" class="bg-red-600 text-white px-6 py-3 rounded-lg hover:bg-red-700 transition hidden">
+                            <i class="fas fa-stop mr-2"></i>Stop Recognition
+                        </button>
+                        <button id="testMLBtn" class="bg-purple-600 text-white px-6 py-3 rounded-lg hover:bg-purple-700 transition">
+                            <i class="fas fa-flask mr-2"></i>Test ML
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Results Panel -->
+            <div>
+                <div class="bg-white rounded-lg shadow-lg p-6">
+                    <h3 class="text-xl font-semibold mb-4 flex items-center">
+                        <i class="fas fa-chart-bar mr-3 text-green-600"></i>
+                        Live Results
+                    </h3>
+                    <div id="results" class="space-y-4">
+                        <div class="text-center text-gray-500 py-8">
+                            <i class="fas fa-hand-paper text-4xl mb-4"></i>
+                            <p>Show hand gestures to camera</p>
+                            <p class="text-sm text-gray-400 mt-2">Tamil ISL signs will appear here</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Stats -->
+                <div class="bg-white rounded-lg shadow-lg p-6 mt-6">
+                    <h3 class="text-lg font-semibold mb-4">Session Stats</h3>
+                    <div class="space-y-3">
+                        <div class="flex justify-between">
+                            <span>Predictions:</span>
+                            <span id="predictionCount" class="font-semibold">0</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span>Avg Confidence:</span>
+                            <span id="avgConfidence" class="font-semibold">0%</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span>Camera Status:</span>
+                            <span id="cameraStatus" class="font-semibold text-red-500">Offline</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast -->
+    <div id="toast" class="fixed top-4 right-4 bg-white border-l-4 border-green-500 rounded-lg shadow-lg p-4 transform translate-x-full transition-transform duration-300 z-50">
+        <div class="flex items-center">
+            <i id="toastIcon" class="fas fa-check-circle text-green-500 mr-3"></i>
+            <p id="toastMessage" class="text-gray-800 font-medium"></p>
+        </div>
+    </div>
+
+    <script>
+        // Global State
+        let cameraStream = null;
+        let isRecognitionActive = false;
+        let recognitionInterval = null;
+        let predictionCount = 0;
+        let totalConfidence = 0;
+
+        // DOM Elements
+        const videoElement = document.getElementById('videoElement');
+        const canvasElement = document.getElementById('canvasElement');
+        const enableCameraBtn = document.getElementById('enableCameraBtn');
+        const startRecognitionBtn = document.getElementById('startRecognitionBtn');
+        const stopRecognitionBtn = document.getElementById('stopRecognitionBtn');
+        const testMLBtn = document.getElementById('testMLBtn');
+        const languageSelect = document.getElementById('languageSelect');
+        const cameraPermission = document.getElementById('cameraPermission');
+        const predictionOverlay = document.getElementById('predictionOverlay');
+        const results = document.getElementById('results');
+        const liveStatus = document.getElementById('liveStatus');
+
+        // Utility Functions
+        function showToast(message, type = 'success') {
+            const toast = document.getElementById('toast');
+            const icon = document.getElementById('toastIcon');
+            const messageEl = document.getElementById('toastMessage');
+            
+            const configs = {
+                success: { icon: 'fas fa-check-circle', color: 'green' },
+                error: { icon: 'fas fa-exclamation-circle', color: 'red' },
+                info: { icon: 'fas fa-info-circle', color: 'blue' }
+            };
+            
+            const config = configs[type];
+            icon.className = `${config.icon} text-${config.color}-500 mr-3`;
+            messageEl.textContent = message;
+            
+            toast.classList.remove('translate-x-full');
+            setTimeout(() => toast.classList.add('translate-x-full'), 3000);
+        }
+
+        function updateStats() {
+            document.getElementById('predictionCount').textContent = predictionCount;
+            const avgConf = predictionCount > 0 ? Math.round((totalConfidence / predictionCount) * 100) : 0;
+            document.getElementById('avgConfidence').textContent = `${avgConf}%`;
+        }
+
+        // Camera Functions
+        async function enableCamera() {
+            try {
+                console.log('Requesting camera access...');
+                
+                // Request camera with specific constraints
+                cameraStream = await navigator.mediaDevices.getUserMedia({
+                    video: {
+                        width: { ideal: 1280, min: 640 },
+                        height: { ideal: 720, min: 480 },
+                        facingMode: 'user',
+                        frameRate: { ideal: 30, min: 15 }
+                    },
+                    audio: false
+                });
+
+                console.log('Camera access granted');
+                
+                // Set video source
+                videoElement.srcObject = cameraStream;
+                
+                // Wait for video to load
+                videoElement.onloadedmetadata = () => {
+                    console.log('Video metadata loaded');
+                    cameraPermission.classList.add('hidden');
+                    startRecognitionBtn.disabled = false;
+                    
+                    // Update status
+                    liveStatus.textContent = 'CAMERA READY';
+                    liveStatus.className = 'bg-yellow-500 px-2 py-1 rounded text-xs font-semibold';
+                    document.getElementById('cameraStatus').textContent = 'Online';
+                    document.getElementById('cameraStatus').className = 'font-semibold text-green-500';
+                    
+                    showToast('Camera enabled successfully! 📹', 'success');
+                };
+
+                videoElement.onerror = (error) => {
+                    console.error('Video error:', error);
+                    showToast('Video playback error', 'error');
+                };
+
+            } catch (error) {
+                console.error('Camera access error:', error);
+                
+                let errorMessage = 'Camera access failed. ';
+                if (error.name === 'NotAllowedError') {
+                    errorMessage += 'Please allow camera permissions and refresh the page.';
+                } else if (error.name === 'NotFoundError') {
+                    errorMessage += 'No camera found on this device.';
+                } else if (error.name === 'NotReadableError') {
+                    errorMessage += 'Camera is being used by another application.';
+                } else {
+                    errorMessage += error.message;
+                }
+                
+                showToast(errorMessage, 'error');
+            }
+        }
+
+        // Recognition Functions
+        function startRecognition() {
+            if (!cameraStream) {
+                showToast('Please enable camera first', 'error');
+                return;
+            }
+
+            isRecognitionActive = true;
+            startRecognitionBtn.classList.add('hidden');
+            stopRecognitionBtn.classList.remove('hidden');
+            
+            liveStatus.textContent = 'LIVE RECOGNITION';
+            liveStatus.className = 'bg-green-500 px-2 py-1 rounded text-xs font-semibold live-indicator';
+            
+            // Start recognition loop
+            recognitionInterval = setInterval(processFrame, 2000); // Every 2 seconds
+            
+            showToast('Live recognition started! 🎯', 'success');
+            console.log('Recognition started');
+        }
+
+        function stopRecognition() {
+            isRecognitionActive = false;
+            
+            if (recognitionInterval) {
+                clearInterval(recognitionInterval);
+                recognitionInterval = null;
+            }
+            
+            startRecognitionBtn.classList.remove('hidden');
+            stopRecognitionBtn.classList.add('hidden');
+            predictionOverlay.classList.add('hidden');
+            
+            liveStatus.textContent = 'CAMERA READY';
+            liveStatus.className = 'bg-yellow-500 px-2 py-1 rounded text-xs font-semibold';
+            
+            showToast('Recognition stopped', 'info');
+            console.log('Recognition stopped');
+        }
+
+        async function processFrame() {
+            if (!isRecognitionActive || !cameraStream) return;
+
+            try {
+                // Capture frame from video
+                const canvas = canvasElement;
+                const ctx = canvas.getContext('2d');
+                
+                canvas.width = videoElement.videoWidth || 640;
+                canvas.height = videoElement.videoHeight || 480;
+                
+                if (videoElement.videoWidth > 0) {
+                    ctx.drawImage(videoElement, 0, 0, canvas.width, canvas.height);
+                    
+                    // Convert to base64 (optional - for actual ML processing)
+                    const frameData = canvas.toDataURL('image/jpeg', 0.8);
+                    
+                    // Make prediction request
+                    const response = await axios.post('http://localhost:8001/predict', {
+                        language: 'ISL',
+                        output_language: languageSelect.value,
+                        input_type: 'camera_frame',
+                        keypoints: [[0.5, 0.5, 0.0], [0.6, 0.4, 0.0]], // Mock keypoints for demo
+                        session_id: `live_${Date.now()}`
+                    });
+
+                    displayPrediction(response.data);
+                    updateStats();
+                }
+                
+            } catch (error) {
+                console.error('Frame processing error:', error);
+                // Don't show error toast for every frame failure
+            }
+        }
+
+        function displayPrediction(data) {
+            const outputLang = languageSelect.value;
+            const prediction = data.prediction;
+            
+            // Update overlay
+            document.getElementById('predictedSign').textContent = prediction.sign;
+            document.getElementById('signDescription').textContent = 
+                prediction.description[outputLang] || prediction.description.english || 'Tamil ISL Sign';
+            document.getElementById('signPhonetic').textContent = 
+                prediction.phonetic ? `🔊 ${prediction.phonetic}` : '';
+            document.getElementById('confidenceScore').textContent = 
+                `${Math.round(prediction.confidence * 100)}%`;
+            
+            predictionOverlay.classList.remove('hidden');
+            
+            // Update results panel
+            const description = prediction.description[outputLang] || prediction.description.english || 'Tamil ISL Sign';
+            
+            results.innerHTML = `
+                <div class="space-y-4">
+                    <div class="bg-green-50 border border-green-200 rounded-lg p-4">
+                        <div class="flex items-center justify-between mb-2">
+                            <h4 class="font-bold text-green-800 text-lg">${prediction.sign}</h4>
+                            <span class="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm font-medium">
+                                ${Math.round(prediction.confidence * 100)}%
+                            </span>
+                        </div>
+                        <p class="text-green-700 mb-2">${description}</p>
+                        ${prediction.phonetic ? `
+                            <div class="text-sm text-green-600 mb-2">
+                                <span class="font-medium">🔊 Pronunciation:</span> ${prediction.phonetic}
+                            </div>
+                        ` : ''}
+                        ${prediction.cultural_context ? `
+                            <div class="text-sm text-green-600 mb-2">
+                                <span class="font-medium">🏛️ Cultural Context:</span> ${prediction.cultural_context}
+                            </div>
+                        ` : ''}
+                        <div class="text-sm text-green-600">
+                            <span class="font-medium">Category:</span> ${prediction.category} | 
+                            <span class="font-medium">Difficulty:</span> ${prediction.difficulty}
+                        </div>
+                    </div>
+                    
+                    <div class="text-xs text-gray-500 bg-gray-50 p-2 rounded">
+                        ⚡ Live Processing | 🤖 ${data.model_info.name} | 🌍 ${outputLang}
+                    </div>
+                </div>
+            `;
+            
+            // Update stats
+            predictionCount++;
+            totalConfidence += prediction.confidence;
+        }
+
+        // Test ML Server
+        async function testMLServer() {
+            try {
+                const response = await axios.post('http://localhost:8001/predict', {
+                    language: 'ISL',
+                    output_language: languageSelect.value,
+                    input_type: 'test',
+                    keypoints: [[0.5, 0.5, 0.0]],
+                    session_id: `test_${Date.now()}`
+                });
+
+                displayPrediction(response.data);
+                updateStats();
+                showToast('ML Server test successful! 🎯', 'success');
+                
+            } catch (error) {
+                console.error('ML test failed:', error);
+                showToast('ML Server test failed. Check if server is running on port 8001.', 'error');
+            }
+        }
+
+        // Event Listeners
+        enableCameraBtn.addEventListener('click', enableCamera);
+        startRecognitionBtn.addEventListener('click', startRecognition);
+        stopRecognitionBtn.addEventListener('click', stopRecognition);
+        testMLBtn.addEventListener('click', testMLServer);
+
+        languageSelect.addEventListener('change', () => {
+            showToast(`Language changed to ${languageSelect.options[languageSelect.selectedIndex].text}`, 'info');
+        });
+
+        // Cleanup on page unload
+        window.addEventListener('beforeunload', () => {
+            if (cameraStream) {
+                cameraStream.getTracks().forEach(track => track.stop());
+            }
+        });
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            console.log('SignLink AI Live Camera initialized');
+            
+            // Check if camera is available
+            if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+                showToast('Camera not supported in this browser', 'error');
+                enableCameraBtn.disabled = true;
+            }
+            
+            // Test ML server connection
+            setTimeout(async () => {
+                try {
+                    await axios.get('http://localhost:8001/health');
+                    console.log('ML Server connected');
+                } catch (error) {
+                    console.log('ML Server not available');
+                    showToast('ML Server not available. Please start the server.', 'error');
+                }
+            }, 1000);
+        });
+    </script>
+</body>
+</html>

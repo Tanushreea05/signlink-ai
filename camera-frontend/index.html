@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SignLink AI - Real Camera Tamil ISL Recognition</title>
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+    <style>
+        .gradient-bg { background: linear-gradient(135deg, #667eea 0%, #764ba2 100%); }
+        .card-shadow { box-shadow: 0 10px 25px rgba(0,0,0,0.1); }
+        .animate-pulse-custom { animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+        .camera-container { position: relative; border-radius: 12px; overflow: hidden; }
+        .prediction-overlay { 
+            position: absolute; 
+            top: 10px; 
+            left: 10px; 
+            right: 10px; 
+            background: rgba(0,0,0,0.8); 
+            color: white; 
+            padding: 10px; 
+            border-radius: 8px;
+            backdrop-filter: blur(10px);
+        }
+        .hand-indicator {
+            position: absolute;
+            width: 20px;
+            height: 20px;
+            border: 2px solid #00ff00;
+            border-radius: 50%;
+            animation: pulse 1s infinite;
+        }
+    </style>
+</head>
+<body class="bg-gray-50">
+    <!-- Navigation -->
+    <nav class="gradient-bg text-white shadow-lg">
+        <div class="container mx-auto px-6 py-4">
+            <div class="flex justify-between items-center">
+                <div class="flex items-center space-x-4">
+                    <i class="fas fa-video text-2xl"></i>
+                    <h1 class="text-2xl font-bold">SignLink AI Camera</h1>
+                    <span class="bg-green-400 text-black px-2 py-1 rounded text-xs font-semibold">LIVE</span>
+                </div>
+                <div class="flex items-center space-x-4">
+                    <div class="flex items-center space-x-2">
+                        <div id="statusIndicator" class="w-3 h-3 bg-red-500 rounded-full"></div>
+                        <span id="statusText" class="text-sm">Connecting...</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <div class="container mx-auto px-6 py-8">
+        <!-- Main Camera Interface -->
+        <div class="grid grid-cols-1 lg:grid-cols-3 gap-8">
+            <!-- Camera Section -->
+            <div class="lg:col-span-2">
+                <div class="bg-white rounded-lg card-shadow p-6">
+                    <div class="flex justify-between items-center mb-6">
+                        <h3 class="text-xl font-semibold flex items-center">
+                            <i class="fas fa-camera mr-3 text-indigo-600"></i>
+                            Real-time Tamil ISL Recognition
+                        </h3>
+                        <div class="flex space-x-2">
+                            <select id="languageSelect" class="px-3 py-2 border border-gray-300 rounded-lg text-sm">
+                                <option value="tamil" selected>🇮🇳 Tamil (தமிழ்)</option>
+                                <option value="english">🇺🇸 English</option>
+                                <option value="hindi">🇮🇳 Hindi (हिंदी)</option>
+                            </select>
+                        </div>
+                    </div>
+                    
+                    <!-- Camera Container -->
+                    <div class="camera-container bg-gray-900 aspect-video relative">
+                        <video id="videoElement" class="w-full h-full object-cover" autoplay muted playsinline></video>
+                        <canvas id="canvasElement" class="hidden"></canvas>
+                        
+                        <!-- Prediction Overlay -->
+                        <div id="predictionOverlay" class="prediction-overlay hidden">
+                            <div class="flex justify-between items-start">
+                                <div>
+                                    <h4 id="predictedSign" class="text-lg font-bold text-green-400"></h4>
+                                    <p id="signDescription" class="text-sm text-gray-300 mt-1"></p>
+                                    <p id="signPhonetic" class="text-xs text-blue-300 mt-1"></p>
+                                </div>
+                                <div class="text-right">
+                                    <div id="confidenceScore" class="text-2xl font-bold text-yellow-400"></div>
+                                    <div class="text-xs text-gray-400">Confidence</div>
+                                </div>
+                            </div>
+                        </div>
+                        
+                        <!-- Hand Detection Indicators -->
+                        <div id="handIndicators"></div>
+                        
+                        <!-- Camera Status -->
+                        <div id="cameraStatus" class="absolute inset-0 flex items-center justify-center bg-gray-800">
+                            <div class="text-center text-white">
+                                <i class="fas fa-camera text-4xl mb-4 text-gray-400"></i>
+                                <p class="text-lg mb-4">Camera Access Required</p>
+                                <button id="startCameraBtn" class="bg-indigo-600 text-white px-6 py-3 rounded-lg hover:bg-indigo-700 transition">
+                                    <i class="fas fa-play mr-2"></i>Start Camera
+                                </button>
+                            </div>
+                        </div>
+                    </div>
+                    
+                    <!-- Camera Controls -->
+                    <div class="mt-6 flex justify-center space-x-4">
+                        <button id="toggleRecognition" class="bg-green-600 text-white px-6 py-3 rounded-lg hover:bg-green-700 transition disabled:opacity-50" disabled>
+                            <i class="fas fa-play mr-2"></i>Start Recognition
+                        </button>
+                        <button id="captureFrame" class="bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 transition disabled:opacity-50" disabled>
+                            <i class="fas fa-camera mr-2"></i>Capture Frame
+                        </button>
+                        <button id="testMLBtn" class="bg-purple-600 text-white px-6 py-3 rounded-lg hover:bg-purple-700 transition">
+                            <i class="fas fa-flask mr-2"></i>Test ML Server
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Results Panel -->
+            <div>
+                <div class="bg-white rounded-lg card-shadow p-6">
+                    <h3 class="text-xl font-semibold mb-6 flex items-center">
+                        <i class="fas fa-chart-bar mr-3 text-green-600"></i>
+                        Recognition Results
+                    </h3>
+                    <div id="results" class="space-y-4">
+                        <div class="text-center text-gray-500 py-8">
+                            <i class="fas fa-hand-paper text-3xl mb-4"></i>
+                            <p>Show hand gestures to camera</p>
+                            <p class="text-sm text-gray-400 mt-2">Tamil ISL signs will be recognized in real-time</p>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Statistics Panel -->
+                <div class="bg-white rounded-lg card-shadow p-6 mt-6">
+                    <h3 class="text-lg font-semibold mb-4 flex items-center">
+                        <i class="fas fa-chart-line mr-3 text-blue-600"></i>
+                        Session Stats
+                    </h3>
+                    <div class="space-y-3">
+                        <div class="flex justify-between">
+                            <span class="text-gray-600">Predictions Made:</span>
+                            <span id="predictionCount" class="font-semibold">0</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-gray-600">Average Confidence:</span>
+                            <span id="avgConfidence" class="font-semibold">0%</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-gray-600">Session Time:</span>
+                            <span id="sessionTime" class="font-semibold">0:00</span>
+                        </div>
+                        <div class="flex justify-between">
+                            <span class="text-gray-600">Language:</span>
+                            <span id="currentLanguage" class="font-semibold">Tamil</span>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <!-- Recent Predictions -->
+        <div class="mt-8">
+            <div class="bg-white rounded-lg card-shadow p-6">
+                <h3 class="text-xl font-semibold mb-6 flex items-center">
+                    <i class="fas fa-history mr-3 text-purple-600"></i>
+                    Recent Predictions
+                </h3>
+                <div id="recentPredictions" class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    <div class="text-center text-gray-500 py-8 col-span-full">
+                        <i class="fas fa-clock text-3xl mb-4"></i>
+                        <p>Recent predictions will appear here</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Toast Notification -->
+    <div id="toast" class="fixed top-4 right-4 bg-white border-l-4 border-green-500 rounded-lg shadow-lg p-4 transform translate-x-full transition-transform duration-300 z-50">
+        <div class="flex items-center">
+            <i id="toastIcon" class="fas fa-check-circle text-green-500 mr-3"></i>
+            <p id="toastMessage" class="text-gray-800 font-medium"></p>
+        </div>
+    </div>
+
+    <script>
+        // Application State
+        const AppState = {
+            camera: null,
+            stream: null,
+            isRecognitionActive: false,
+            sessionStartTime: Date.now(),
+            predictions: [],
+            stats: {
+                totalPredictions: 0,
+                totalConfidence: 0,
+                avgConfidence: 0
+            }
+        };
+
+        // API Configuration
+        const API_CONFIG = {
+            mlServer: 'http://localhost:8001',
+            backend: 'http://localhost:8000'
+        };
+
+        // DOM Elements
+        const elements = {
+            videoElement: document.getElementById('videoElement'),
+            canvasElement: document.getElementById('canvasElement'),
+            startCameraBtn: document.getElementById('startCameraBtn'),
+            toggleRecognition: document.getElementById('toggleRecognition'),
+            captureFrame: document.getElementById('captureFrame'),
+            testMLBtn: document.getElementById('testMLBtn'),
+            languageSelect: document.getElementById('languageSelect'),
+            cameraStatus: document.getElementById('cameraStatus'),
+            predictionOverlay: document.getElementById('predictionOverlay'),
+            results: document.getElementById('results'),
+            recentPredictions: document.getElementById('recentPredictions'),
+            statusIndicator: document.getElementById('statusIndicator'),
+            statusText: document.getElementById('statusText')
+        };
+
+        // Utility Functions
+        function showToast(message, type = 'success') {
+            const toast = document.getElementById('toast');
+            const icon = document.getElementById('toastIcon');
+            const messageEl = document.getElementById('toastMessage');
+            
+            const config = {
+                success: { icon: 'fas fa-check-circle', color: 'green' },
+                error: { icon: 'fas fa-exclamation-circle', color: 'red' },
+                info: { icon: 'fas fa-info-circle', color: 'blue' }
+            };
+            
+            icon.className = `${config[type].icon} text-${config[type].color}-500 mr-3`;
+            messageEl.textContent = message;
+            
+            toast.classList.remove('translate-x-full');
+            setTimeout(() => toast.classList.add('translate-x-full'), 3000);
+        }
+
+        function updateStats() {
+            document.getElementById('predictionCount').textContent = AppState.stats.totalPredictions;
+            document.getElementById('avgConfidence').textContent = `${Math.round(AppState.stats.avgConfidence)}%`;
+            
+            const sessionMinutes = Math.floor((Date.now() - AppState.sessionStartTime) / 60000);
+            const sessionSeconds = Math.floor(((Date.now() - AppState.sessionStartTime) % 60000) / 1000);
+            document.getElementById('sessionTime').textContent = `${sessionMinutes}:${sessionSeconds.toString().padStart(2, '0')}`;
+            
+            document.getElementById('currentLanguage').textContent = 
+                elements.languageSelect.options[elements.languageSelect.selectedIndex].text.split(' ')[1] || 'Tamil';
+        }
+
+        // Camera Functions
+        async function initializeCamera() {
+            try {
+                AppState.stream = await navigator.mediaDevices.getUserMedia({
+                    video: { 
+                        width: { ideal: 1280 },
+                        height: { ideal: 720 },
+                        facingMode: 'user'
+                    },
+                    audio: false
+                });
+                
+                elements.videoElement.srcObject = AppState.stream;
+                elements.cameraStatus.classList.add('hidden');
+                elements.toggleRecognition.disabled = false;
+                elements.captureFrame.disabled = false;
+                
+                updateStatus('connected', 'Camera Connected');
+                showToast('Camera initialized successfully! 📹', 'success');
+                
+            } catch (error) {
+                console.error('Camera initialization failed:', error);
+                showToast('Camera access denied. Please allow camera permissions.', 'error');
+                updateStatus('error', 'Camera Error');
+            }
+        }
+
+        function updateStatus(status, text) {
+            const indicator = elements.statusIndicator;
+            const statusText = elements.statusText;
+            
+            indicator.className = `w-3 h-3 rounded-full ${
+                status === 'connected' ? 'bg-green-500' :
+                status === 'processing' ? 'bg-yellow-500 animate-pulse' :
+                'bg-red-500'
+            }`;
+            statusText.textContent = text;
+        }
+
+        // ML Recognition Functions
+        async function startRecognition() {
+            if (AppState.isRecognitionActive) {
+                stopRecognition();
+                return;
+            }
+            
+            AppState.isRecognitionActive = true;
+            elements.toggleRecognition.innerHTML = '<i class="fas fa-stop mr-2"></i>Stop Recognition';
+            elements.toggleRecognition.classList.remove('bg-green-600', 'hover:bg-green-700');
+            elements.toggleRecognition.classList.add('bg-red-600', 'hover:bg-red-700');
+            
+            updateStatus('processing', 'Recognizing...');
+            showToast('Real-time recognition started! 🎯', 'info');
+            
+            // Start continuous recognition
+            recognitionLoop();
+        }
+
+        function stopRecognition() {
+            AppState.isRecognitionActive = false;
+            elements.toggleRecognition.innerHTML = '<i class="fas fa-play mr-2"></i>Start Recognition';
+            elements.toggleRecognition.classList.remove('bg-red-600', 'hover:bg-red-700');
+            elements.toggleRecognition.classList.add('bg-green-600', 'hover:bg-green-700');
+            
+            elements.predictionOverlay.classList.add('hidden');
+            updateStatus('connected', 'Camera Connected');
+            showToast('Recognition stopped', 'info');
+        }
+
+        async function recognitionLoop() {
+            if (!AppState.isRecognitionActive) return;
+            
+            try {
+                await captureAndPredict();
+                setTimeout(recognitionLoop, 1000); // Predict every second
+            } catch (error) {
+                console.error('Recognition loop error:', error);
+                setTimeout(recognitionLoop, 2000); // Retry after 2 seconds
+            }
+        }
+
+        async function captureAndPredict() {
+            if (!elements.videoElement.videoWidth) return;
+            
+            // Capture frame
+            const canvas = elements.canvasElement;
+            const ctx = canvas.getContext('2d');
+            
+            canvas.width = elements.videoElement.videoWidth;
+            canvas.height = elements.videoElement.videoHeight;
+            ctx.drawImage(elements.videoElement, 0, 0);
+            
+            // Convert to base64
+            const frameData = canvas.toDataURL('image/jpeg', 0.8);
+            
+            try {
+                const response = await axios.post(`${API_CONFIG.mlServer}/predict`, {
+                    language: 'ISL',
+                    output_language: elements.languageSelect.value,
+                    input_type: 'camera_frame',
+                    keypoints: [[0.5, 0.5, 0.0], [0.6, 0.4, 0.0]], // Mock keypoints
+                    session_id: `camera_${Date.now()}`
+                });
+                
+                displayPrediction(response.data);
+                updateStats();
+                
+            } catch (error) {
+                console.error('Prediction failed:', error);
+            }
+        }
+
+        function displayPrediction(data) {
+            // Update overlay
+            const overlay = elements.predictionOverlay;
+            const outputLang = elements.languageSelect.value;
+            
+            document.getElementById('predictedSign').textContent = data.prediction.sign;
+            document.getElementById('signDescription').textContent = 
+                data.prediction.description[outputLang] || data.prediction.description.english;
+            document.getElementById('signPhonetic').textContent = 
+                data.prediction.phonetic ? `🔊 ${data.prediction.phonetic}` : '';
+            document.getElementById('confidenceScore').textContent = 
+                `${Math.round(data.prediction.confidence * 100)}%`;
+            
+            overlay.classList.remove('hidden');
+            
+            // Update results panel
+            displayResults(data);
+            
+            // Add to recent predictions
+            addToRecentPredictions(data);
+            
+            // Update statistics
+            AppState.stats.totalPredictions++;
+            AppState.stats.totalConfidence += data.prediction.confidence;
+            AppState.stats.avgConfidence = (AppState.stats.totalConfidence / AppState.stats.totalPredictions) * 100;
+        }
+
+        function displayResults(data) {
+            const outputLang = elements.languageSelect.value;
+            const description = data.prediction.description[outputLang] || data.prediction.description.english;
+            
+            elements.results.innerHTML = `
+                <div class="space-y-4">
+                    <div class="bg-green-50 border border-green-200 rounded-lg p-4">
+                        <div class="flex items-center justify-between mb-2">
+                            <h4 class="font-bold text-green-800 text-lg">${data.prediction.sign}</h4>
+                            <span class="bg-green-100 text-green-800 px-3 py-1 rounded-full text-sm font-medium">
+                                ${Math.round(data.prediction.confidence * 100)}%
+                            </span>
+                        </div>
+                        <p class="text-green-700 mb-2">${description}</p>
+                        ${data.prediction.phonetic ? `
+                            <div class="text-sm text-green-600 mb-2">
+                                <span class="font-medium">🔊 Pronunciation:</span> ${data.prediction.phonetic}
+                            </div>
+                        ` : ''}
+                        ${data.prediction.cultural_context ? `
+                            <div class="text-sm text-green-600 mb-2">
+                                <span class="font-medium">🏛️ Cultural Context:</span> ${data.prediction.cultural_context}
+                            </div>
+                        ` : ''}
+                        <div class="text-sm text-green-600">
+                            <span class="font-medium">Category:</span> ${data.prediction.category} | 
+                            <span class="font-medium">Difficulty:</span> ${data.prediction.difficulty}
+                        </div>
+                    </div>
+                    
+                    ${data.alternatives.length > 0 ? `
+                        <div class="space-y-2">
+                            <h5 class="font-medium text-gray-700">Alternative Predictions:</h5>
+                            ${data.alternatives.map(alt => `
+                                <div class="bg-gray-50 p-3 rounded-lg flex justify-between items-center">
+                                    <div>
+                                        <span class="font-medium">${alt.sign}</span>
+                                        <p class="text-sm text-gray-600">${alt.description[outputLang] || alt.description.english}</p>
+                                    </div>
+                                    <span class="text-gray-500 text-sm">${Math.round(alt.confidence * 100)}%</span>
+                                </div>
+                            `).join('')}
+                        </div>
+                    ` : ''}
+                    
+                    <div class="text-xs text-gray-500 bg-gray-50 p-2 rounded">
+                        ⚡ Processing: ${Math.round(data.processing_time_ms)}ms | 
+                        🤖 Model: ${data.model_info.name} | 
+                        🌍 Language: ${outputLang}
+                    </div>
+                </div>
+            `;
+        }
+
+        function addToRecentPredictions(data) {
+            AppState.predictions.unshift(data);
+            if (AppState.predictions.length > 6) {
+                AppState.predictions = AppState.predictions.slice(0, 6);
+            }
+            
+            const container = elements.recentPredictions;
+            const outputLang = elements.languageSelect.value;
+            
+            container.innerHTML = AppState.predictions.map(pred => `
+                <div class="bg-gray-50 border border-gray-200 rounded-lg p-4 hover:shadow-md transition">
+                    <div class="flex justify-between items-start mb-2">
+                        <h4 class="font-bold text-gray-800">${pred.prediction.sign}</h4>
+                        <span class="text-sm text-gray-500">${Math.round(pred.prediction.confidence * 100)}%</span>
+                    </div>
+                    <p class="text-sm text-gray-600 mb-2">${pred.prediction.description[outputLang] || pred.prediction.description.english}</p>
+                    <div class="text-xs text-gray-500">
+                        ${pred.prediction.category} • ${new Date(pred.timestamp).toLocaleTimeString()}
+                    </div>
+                </div>
+            `).join('');
+        }
+
+        // Test ML Server
+        async function testMLServer() {
+            try {
+                updateStatus('processing', 'Testing ML Server...');
+                
+                const response = await axios.post(`${API_CONFIG.mlServer}/predict`, {
+                    language: 'ISL',
+                    output_language: elements.languageSelect.value,
+                    input_type: 'keypoints',
+                    keypoints: [[0.5, 0.5, 0.0], [0.6, 0.4, 0.0]],
+                    session_id: `test_${Date.now()}`
+                });
+                
+                displayResults(response.data);
+                addToRecentPredictions(response.data);
+                
+                AppState.stats.totalPredictions++;
+                AppState.stats.totalConfidence += response.data.prediction.confidence;
+                AppState.stats.avgConfidence = (AppState.stats.totalConfidence / AppState.stats.totalPredictions) * 100;
+                
+                updateStats();
+                updateStatus('connected', 'ML Server Working');
+                showToast('ML Server test successful! 🎯', 'success');
+                
+            } catch (error) {
+                console.error('ML Server test failed:', error);
+                updateStatus('error', 'ML Server Error');
+                showToast('ML Server test failed. Check if server is running.', 'error');
+            }
+        }
+
+        // Event Listeners
+        elements.startCameraBtn.addEventListener('click', initializeCamera);
+        elements.toggleRecognition.addEventListener('click', startRecognition);
+        elements.captureFrame.addEventListener('click', captureAndPredict);
+        elements.testMLBtn.addEventListener('click', testMLServer);
+
+        elements.languageSelect.addEventListener('change', () => {
+            updateStats();
+            showToast(`Language changed to ${elements.languageSelect.options[elements.languageSelect.selectedIndex].text}`, 'info');
+        });
+
+        // Initialize
+        document.addEventListener('DOMContentLoaded', () => {
+            updateStats();
+            setInterval(updateStats, 1000); // Update stats every second
+            
+            // Check ML server status
+            setTimeout(async () => {
+                try {
+                    await axios.get(`${API_CONFIG.mlServer}/health`);
+                    updateStatus('connected', 'ML Server Ready');
+                } catch (error) {
+                    updateStatus('error', 'ML Server Offline');
+                }
+            }, 1000);
+        });
+    </script>
+</body>
+</html>

@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SignLink AI - Sign Language Recognition</title>
+    <title>Signverse AI - Sign Language Recognition</title>
     <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://unpkg.com/axios/dist/axios.min.js"></script>
 </head>
@@ -15,7 +15,7 @@
                 <div class="w-8 h-8 bg-blue-600 rounded-lg flex items-center justify-center">
                     <span class="text-white font-bold">S</span>
                 </div>
-                <span class="text-xl font-bold text-gray-800">SignLink AI</span>
+                <span class="text-xl font-bold text-gray-800">Signverse AI</span>
             </div>
             <div class="flex space-x-4">
                 <button id="loginBtn" class="text-blue-600 hover:text-blue-800 font-medium">Login</button>
@@ -77,9 +77,9 @@
                         <h3 class="text-lg font-semibold mb-4">Input</h3>
                         <div class="space-y-4">
                             <select id="languageSelect" class="w-full p-3 border rounded-lg">
-                                <option value="ASL">American Sign Language (ASL)</option>
-                                <option value="ISL">Indian Sign Language (ISL)</option>
-                                <option value="BSL">British Sign Language (BSL)</option>
+                                <option value="ISL" selected>🇮🇳 Indian Sign Language (ISL) - Enhanced</option>
+                                <option value="ASL">🇺🇸 American Sign Language (ASL)</option>
+                                <option value="BSL">🇬🇧 British Sign Language (BSL)</option>
                             </select>
                             
                             <div class="bg-gray-100 border-2 border-dashed border-gray-300 rounded-lg p-8 text-center">
@@ -153,13 +153,14 @@
     <!-- Footer -->
     <footer class="bg-gray-900 text-white py-8 mt-12">
         <div class="container mx-auto px-4 text-center">
-            <p class="text-gray-400">© 2025 SignLink AI. All rights reserved.</p>
+            <p class="text-gray-400">© 2025 Signverse
+                 AI. All rights reserved.</p>
         </div>
     </footer>
 
     <script>
         // Configuration
-        const API_BASE = 'http://localhost:8000';
+        const API_BASE = 'http://localhost:8001';
         const ML_BASE = 'http://localhost:8001';
         let authToken = null;
 
@@ -194,33 +195,75 @@
         // Register user
         registerForm.addEventListener('submit', async (e) => {
             e.preventDefault();
+            const email = document.getElementById('registerEmail').value;
+            const password = document.getElementById('registerPassword').value;
+            const fullName = document.getElementById('registerName').value;
+            
+            if (!email || !password || !fullName) {
+                alert('Please fill in all fields');
+                return;
+            }
+            
             try {
                 const response = await axios.post(`${API_BASE}/api/v1/auth/register`, {
-                    email: document.getElementById('regEmail').value,
-                    password: document.getElementById('regPassword').value,
-                    full_name: document.getElementById('regName').value
+                    email: email,
+                    password: password,
+                    full_name: fullName
                 });
-                alert('Registration successful! Please login.');
-                registerForm.reset();
+                alert('Registration successful! Please login with your credentials.');
+                // Clear form
+                document.getElementById('registerEmail').value = '';
+                document.getElementById('registerPassword').value = '';
+                document.getElementById('registerName').value = '';
             } catch (error) {
-                alert('Registration failed: ' + (error.response?.data?.detail || error.message));
+                console.error('Registration error:', error);
+                let errorMessage = 'Registration failed';
+                if (error.response?.status === 400) {
+                    errorMessage = 'Email already registered. Please use a different email or try logging in.';
+                } else if (error.response?.data?.detail) {
+                    errorMessage = error.response.data.detail;
+                } else if (error.message.includes('Network Error')) {
+                    errorMessage = 'Cannot connect to server. Please ensure the backend is running.';
+                } else {
+                    errorMessage = error.message;
+                }
+                alert(' ' + errorMessage);
             }
         });
 
         // Login user
         loginForm.addEventListener('submit', async (e) => {
             e.preventDefault();
+            const email = document.getElementById('loginEmail').value;
+            const password = document.getElementById('loginPassword').value;
+            
+            if (!email || !password) {
+                alert('Please enter both email and password');
+                return;
+            }
+            
             try {
                 const response = await axios.post(`${API_BASE}/api/v1/auth/login`, {
-                    email: document.getElementById('loginEmail').value,
-                    password: document.getElementById('loginPassword').value
+                    email: email,
+                    password: password
                 });
                 authToken = response.data.access_token;
                 authSection.classList.add('hidden');
                 demoSection.classList.remove('hidden');
-                alert('Login successful!');
+                alert('✅ Login successful! Welcome to SignLink AI ISL Platform!');
             } catch (error) {
-                alert('Login failed: ' + (error.response?.data?.detail || error.message));
+                console.error('Login error:', error);
+                let errorMessage = 'Login failed';
+                if (error.response?.status === 401) {
+                    errorMessage = 'Invalid email or password. Please check your credentials.';
+                } else if (error.response?.data?.detail) {
+                    errorMessage = error.response.data.detail;
+                } else if (error.message.includes('Network Error')) {
+                    errorMessage = 'Cannot connect to server. Please ensure the backend is running.';
+                } else {
+                    errorMessage = error.message;
+                }
+                alert('❌ ' + errorMessage);
             }
         });
 

@@ -428,20 +428,51 @@
             elements.loadingState.classList.remove('hidden');
             
             try {
+                // Create proper test keypoints (21 landmarks for a hand)
+                const testKeypoints = [
+                    [0.5, 0.5, 0.0],   // Wrist
+                    [0.45, 0.4, 0.0],  // Thumb base
+                    [0.4, 0.35, 0.0],  // Thumb joint
+                    [0.35, 0.3, 0.0],  // Thumb joint
+                    [0.3, 0.25, 0.0],  // Thumb tip
+                    [0.55, 0.45, 0.0], // Index base
+                    [0.6, 0.4, 0.0],   // Index joint
+                    [0.65, 0.35, 0.0], // Index joint
+                    [0.7, 0.3, 0.0],   // Index tip
+                    [0.6, 0.5, 0.0],   // Middle base
+                    [0.65, 0.45, 0.0], // Middle joint
+                    [0.7, 0.4, 0.0],   // Middle joint
+                    [0.75, 0.35, 0.0], // Middle tip
+                    [0.55, 0.55, 0.0], // Ring base
+                    [0.6, 0.5, 0.0],   // Ring joint
+                    [0.65, 0.45, 0.0], // Ring joint
+                    [0.7, 0.4, 0.0],   // Ring tip
+                    [0.5, 0.6, 0.0],   // Pinky base
+                    [0.55, 0.55, 0.0], // Pinky joint
+                    [0.6, 0.5, 0.0],   // Pinky joint
+                    [0.65, 0.45, 0.0]  // Pinky tip
+                ];
+                
                 const response = await axios.post(`${API_CONFIG.mlServer}/predict`, {
-                    language: document.getElementById('languageSelect').value,
-                    output_language: document.getElementById('outputLanguage').value,
+                    language: 'ISL',
+                    output_language: document.getElementById('outputLanguage').value || 'tamil',
                     input_type: 'keypoints',
-                    keypoints: [[0.5, 0.5, 0.0], [0.6, 0.4, 0.0]]
+                    keypoints: testKeypoints,
+                    session_id: `test_${Date.now()}`,
+                    confidence_threshold: 0.8,
+                    max_alternatives: 3
                 });
                 
+                console.log('Test ML response:', response.data);
                 displayResults(response.data);
+                
                 AppState.stats.totalPredictions++;
                 updateStats();
-                showToast('ML prediction successful! 🎯');
+                showToast(`Production ML test successful! Accuracy: ${Math.round(response.data.gesture_confidence * 100)}% 🎯`, 'success');
                 
             } catch (error) {
-                showToast('ML server connection failed', 'error');
+                console.error('ML Server test failed:', error);
+                showToast(`ML Server test failed: ${error.response?.data?.detail || error.message}`, 'error');
             } finally {
                 elements.loadingState.classList.add('hidden');
                 elements.cameraPlaceholder.classList.remove('hidden');
@@ -665,29 +696,45 @@
 
         async function performRecognition(handLandmarks) {
             try {
-                // Convert landmarks to keypoints format
+                // Convert landmarks to keypoints format (ensure exactly 21 landmarks)
                 const keypoints = [];
-                for (const landmarks of handLandmarks) {
-                    for (const landmark of landmarks) {
+                if (handLandmarks && handLandmarks.length > 0) {
+                    const landmarks = handLandmarks[0]; // Use first hand
+                    for (let i = 0; i < Math.min(21, landmarks.length); i++) {
+                        const landmark = landmarks[i];
                         keypoints.push([landmark.x, landmark.y, landmark.z || 0]);
+                    }
+                    
+                    // Ensure we have exactly 21 keypoints
+                    while (keypoints.length < 21) {
+                        keypoints.push([0.5, 0.5, 0.0]); // Default position
                     }
                 }
                 
-                // Make prediction request
+                if (keypoints.length < 21) {
+                    console.log('Insufficient keypoints for recognition');
+                    return;
+                }
+                
+                // Make prediction request to production ML server
                 const response = await axios.post(`${API_CONFIG.mlServer}/predict`, {
-                    language: document.getElementById('languageSelect').value,
-                    output_language: document.getElementById('outputLanguage').value,
+                    language: document.getElementById('languageSelect').value || 'ISL',
+                    output_language: document.getElementById('outputLanguage').value || 'tamil',
                     input_type: 'keypoints',
                     keypoints: keypoints,
-                    session_id: `live_${Date.now()}`
+                    session_id: `live_${Date.now()}`,
+                    confidence_threshold: 0.8,
+                    max_alternatives: 3
                 });
                 
+                console.log('Production ML response:', response.data);
                 displayLivePrediction(response.data);
                 AppState.stats.totalPredictions++;
                 updateStats();
                 
             } catch (error) {
                 console.error('Recognition failed:', error);
+                showToast(`Recognition error: ${error.response?.data?.detail || error.message}`, 'error');
             }
         }
 
